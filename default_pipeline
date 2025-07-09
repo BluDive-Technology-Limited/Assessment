@@ -1,0 +1,50 @@
+pipeline {
+    agent any
+    stages {
+        stage('Get Envs') {
+            steps {
+                script {
+                    def envMap = readFile("/var/jenkins_home/context_env")
+                        .split("\n")
+                        .findAll { it.contains("=") }
+                        .collectEntries { it.split("=", 2) }
+                    envMap.each { key, value -> env."${key}" = value }
+
+                    env.PROJECT_NAME = env.GIT_URL.split("/")[4].replace(".git", "")
+                    env.PROJECT_BRANCH = env.GIT_BRANCH.tokenize("/")[1]
+                }
+            }
+        }
+
+        stage('Checkout') {
+            steps {
+                git url: "${env.GIT_URL}", credentialsId: 'github-credentials', branch: "${env.PROJECT_BRANCH}"
+            }
+        }
+
+        stage('Docker Build') {
+            steps {
+                sh """
+                    docker build -t ${PROJECT_NAME}:${BUILD_NUMBER} .
+                    docker tag ${PROJECT_NAME}:${BUILD_NUMBER} ${PROJECT_NAME}:latest
+                """
+            }
+        }
+
+        stage('Deploy to Kubernetes') {
+            steps {
+                sh """
+                    sed -i 's|image: .*|image: ${PROJECT_NAME}:${BUILD_NUMBER}|' k8s/deployment.yaml
+                    kubectl apply -f k8s/deployment.yaml
+                    kubectl apply -f k8s/service.yaml
+                """
+            }
+        }
+        
+        stage('Verify Deployment') {
+            steps {
+                sh "kubectl rollout status deployment/${PROJECT_NAME} --timeout=60s"
+            }
+        }
+    }
+}
