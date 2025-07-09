@@ -1,5 +1,8 @@
 pipeline {
     agent any
+    environment {
+        DOCKERHUB_USERNAME = 'orisuniyanu'
+        }
     stages {
         stage('Create context_env') {
             steps {
@@ -41,7 +44,17 @@ pipeline {
                 """
             }
         }
-
+        stage('Docker Push') {
+            steps {
+                withCredentials([string(credentialsId: 'dockerhub-credentials', variable: 'docker-hub-jenkins')]) {
+                    sh """
+                        echo "${docker-hub-jenkins}" | docker login -u ${env.DOCKERHUB_USERNAME} --password-stdin
+                        docker push ${PROJECT_NAME}:${BUILD_NUMBER}
+                        docker push ${PROJECT_NAME}:latest
+                    """
+                }
+            }
+        }
         stage('Deploy to Kubernetes') {
             steps {
                 sh """
