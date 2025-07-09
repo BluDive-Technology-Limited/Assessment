@@ -46,7 +46,7 @@ pipeline {
         }
         stage('Docker Push') {
             steps {
-                withCredentials([string(credentialsId: 'dockerhub-credentials', variable: 'docker-hub-jenkins')]) {
+               withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', usernameVariable: 'DOCKERHUB_USERNAME', passwordVariable: 'DOCKERHUB_PASSWORD')]) {
                     sh """
                         echo "${docker-hub-jenkins}" | docker login -u ${env.DOCKERHUB_USERNAME} --password-stdin
                         docker push ${PROJECT_NAME}:${BUILD_NUMBER}
@@ -54,7 +54,7 @@ pipeline {
                     """
                 }
             }
-        }
+        }z
         stage('Deploy to Kubernetes') {
             steps {
                 sh """
