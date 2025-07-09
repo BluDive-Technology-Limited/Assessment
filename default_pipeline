@@ -34,11 +34,14 @@ pipeline {
 
         stage('Deploy to Kubernetes') {
             steps {
-                sh """
-                    sed -i 's|image: .*|image: ${DOCKERHUB_USERNAME}/${PROJECT_NAME}:${BUILD_NUMBER}|' k8s/deployment.yaml
-                    kubectl apply -f k8s/deployment.yaml
-                    kubectl apply -f k8s/service.yaml
-                """
+                withCredentials([file(credentialsId: 'minikube-kubeconfig', variable: 'KUBECONFIG_FILE')]) {
+                    sh '''
+                        export KUBECONFIG=$KUBECONFIG_FILE
+                        sed -i 's|image: .*|image: orisuniyanu/flaskapp1:${BUILD_NUMBER}|' k8s/deployment.yaml
+                        kubectl apply -f k8s/deployment.yaml
+                        kubectl apply -f k8s/service.yaml
+                    '''
+                }
             }
         }
 
