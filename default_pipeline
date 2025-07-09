@@ -1,6 +1,8 @@
 pipeline {
     agent any
-
+    environment {
+        DOCKERHUB_USERNAME = 'orisuniyanu'
+    }
     stages {
         stage('Create context_env') {
             steps {
