@@ -1,17 +1,28 @@
 pipeline {
     agent any
     stages {
+        stage('Create context_env') {
+            steps {
+                sh '''
+                    echo "GIT_URL=https://github.com/BluDive-Technology-Limited/Assessment.git" > context_env
+                    echo "GIT_BRANCH=origin/main" >> context_env
+                '''
+            }
+        }
         stage('Get Envs') {
             steps {
                 script {
-                    def envMap = readFile("/var/jenkins_home/context_env")
-                        .split("\n")
-                        .findAll { it.contains("=") }
-                        .collectEntries { it.split("=", 2) }
-                    envMap.each { key, value -> env."${key}" = value }
+                    def lines = readFile("${env.WORKSPACE}/context_env").split("\n")
+                    lines.each { envLine ->
+                        def (key, value) = envLine.tokenize("=")
+                        env."${key}" = "${value}"
+                    }
 
-                    env.PROJECT_NAME = env.GIT_URL.split("/")[4].replace(".git", "")
-                    env.PROJECT_BRANCH = env.GIT_BRANCH.tokenize("/")[1]
+                    env.PROJECT_NAME = env.GIT_URL.split("/")[4].replace(".git", "").trim()
+                    env.PROJECT_BRANCH = env.GIT_BRANCH.split("/")[1].trim()
+
+                    echo "PROJECT_NAME=${env.PROJECT_NAME}"
+                    echo "PROJECT_BRANCH=${env.PROJECT_BRANCH}"
                 }
             }
         }
@@ -40,7 +51,7 @@ pipeline {
                 """
             }
         }
-        
+
         stage('Verify Deployment') {
             steps {
                 sh "kubectl rollout status deployment/${PROJECT_NAME} --timeout=60s"
