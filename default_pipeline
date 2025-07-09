@@ -1,8 +1,5 @@
 pipeline {
     agent any
-    environment {
-        DOCKERHUB_USERNAME = 'orisuniyanu'
-    }
 
     parameters {
         string(name: 'GIT_URL', defaultValue: '', description: 'Git repo URL of the project')
@@ -11,6 +8,7 @@ pipeline {
 
     environment {
         PROJECT_NAME = "${params.GIT_URL.split('/')[-1].replace('.git', '').toLowerCase()}"
+        DOCKERHUB_USERNAME = 'your-dockerhub-username'
     }
 
     stages {
