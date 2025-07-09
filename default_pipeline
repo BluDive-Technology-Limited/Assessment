@@ -18,7 +18,7 @@ pipeline {
                         env."${key}" = "${value}"
                     }
 
-                    env.PROJECT_NAME = env.GIT_URL.split("/")[4].replace(".git", "").trim()
+                    env.PROJECT_NAME = env.GIT_URL.split("/")[4].replace(".git", "").trim().toLowerCase()
                     env.PROJECT_BRANCH = env.GIT_BRANCH.split("/")[1].trim()
 
                     echo "PROJECT_NAME=${env.PROJECT_NAME}"
