@@ -3,62 +3,32 @@ pipeline {
     environment {
         DOCKERHUB_USERNAME = 'orisuniyanu'
     }
+
+    parameters {
+        string(name: 'GIT_URL', defaultValue: '', description: 'Git repo URL of the project')
+        string(name: 'GIT_BRANCH', defaultValue: 'main', description: 'Branch to build')
+    }
+
+    environment {
+        PROJECT_NAME = "${params.GIT_URL.split('/')[-1].replace('.git', '').toLowerCase()}"
+    }
+
     stages {
-        stage('Create context_env') {
-            steps {
-                sh '''
-                    echo "GIT_URL=https://github.com/BluDive-Technology-Limited/Assessment.git" > context_env
-                    echo "GIT_BRANCH=origin/main" >> context_env
-                '''
-            }
-        }
-
-        stage('Get Envs') {
-            steps {
-                script {
-                    def lines = readFile("${env.WORKSPACE}/context_env").split("\n")
-                    lines.each { envLine ->
-                        def (key, value) = envLine.tokenize("=")
-                        env."${key}" = "${value}"
-                    }
-
-                    env.PROJECT_NAME = env.GIT_URL.split("/")[4].replace(".git", "").trim().toLowerCase()
-                    env.PROJECT_BRANCH = env.GIT_BRANCH.split("/")[1].trim()
-
-                    echo "PROJECT_NAME=${env.PROJECT_NAME}"
-                    echo "PROJECT_BRANCH=${env.PROJECT_BRANCH}"
-                }
-            }
-        }
-
         stage('Checkout') {
             steps {
-                git url: "${env.GIT_URL}", credentialsId: 'github-credentials', branch: "${env.PROJECT_BRANCH}"
+                git url: "${params.GIT_URL}", branch: "${params.GIT_BRANCH}", credentialsId: 'github-credentials'
             }
         }
 
-        stage('Docker Build') {
+        stage('Docker Build & Push') {
             steps {
-                sh """
-                    docker build -t ${PROJECT_NAME}:${BUILD_NUMBER} .
-                    docker tag ${PROJECT_NAME}:${BUILD_NUMBER} ${PROJECT_NAME}:latest
-                """
-            }
-        }
-
-        stage('Docker Push') {
-            steps {
-                withCredentials([usernamePassword(
-                    credentialsId: 'docker-hub-jenkins',
-                    usernameVariable: 'DOCKERHUB_USERNAME',
-                    passwordVariable: 'DOCKERHUB_PASSWORD'
-                )]) {
+                withCredentials([usernamePassword(credentialsId: 'docker-hub-jenkins', usernameVariable: 'DOCKERHUB_USERNAME', passwordVariable: 'DOCKERHUB_PASSWORD')]) {
                     sh """
-                        echo "$DOCKERHUB_PASSWORD" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
-                        docker tag ${PROJECT_NAME}:${BUILD_NUMBER} $DOCKERHUB_USERNAME/${PROJECT_NAME}:${BUILD_NUMBER}
-                        docker tag ${PROJECT_NAME}:${BUILD_NUMBER} $DOCKERHUB_USERNAME/${PROJECT_NAME}:latest
-                        docker push $DOCKERHUB_USERNAME/${PROJECT_NAME}:${BUILD_NUMBER}
-                        docker push $DOCKERHUB_USERNAME/${PROJECT_NAME}:latest
+                        docker build -t ${DOCKERHUB_USERNAME}/${PROJECT_NAME}:${BUILD_NUMBER} .
+                        docker tag ${DOCKERHUB_USERNAME}/${PROJECT_NAME}:${BUILD_NUMBER} ${DOCKERHUB_USERNAME}/${PROJECT_NAME}:latest
+                        echo "${DOCKERHUB_PASSWORD}" | docker login -u "${DOCKERHUB_USERNAME}" --password-stdin
+                        docker push ${DOCKERHUB_USERNAME}/${PROJECT_NAME}:${BUILD_NUMBER}
+                        docker push ${DOCKERHUB_USERNAME}/${PROJECT_NAME}:latest
                     """
                 }
             }
@@ -67,7 +37,7 @@ pipeline {
         stage('Deploy to Kubernetes') {
             steps {
                 sh """
-                    sed -i 's|image: .*|image: $DOCKERHUB_USERNAME/${PROJECT_NAME}:${BUILD_NUMBER}|' k8s/deployment.yaml
+                    sed -i 's|image: .*|image: ${DOCKERHUB_USERNAME}/${PROJECT_NAME}:${BUILD_NUMBER}|' k8s/deployment.yaml
                     kubectl apply -f k8s/deployment.yaml
                     kubectl apply -f k8s/service.yaml
                 """
