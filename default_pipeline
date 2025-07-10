@@ -1,5 +1,5 @@
 pipeline {
-    agent { label 'docker' }
+    agent any
 
     parameters {
         string(name: 'GIT_URL', defaultValue: '', description: 'Git repo URL of the project')
@@ -17,21 +17,32 @@ pipeline {
             }
         }
 
+        stage('Get Commit ID') {
+            steps {
+                script {
+                    COMMIT_ID = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
+                    env.COMMIT_ID = COMMIT_ID
+                    echo "Commit ID: ${COMMIT_ID}"
+                }
+            }
+        }
+
         stage('Docker Build') {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'docker-hub-jenkins', usernameVariable: 'DOCKERHUB_USERNAME', passwordVariable: 'DOCKERHUB_PASSWORD')]) {
                     sh """
-                        docker build -t ${DOCKERHUB_USERNAME}/${PROJECT_NAME}:${BUILD_NUMBER} .
+                        docker build -t ${DOCKERHUB_USERNAME}/${PROJECT_NAME}:${BUILD_NUMBER}-${COMMIT_ID} .
                     """
                 }
             }
         }
+
         stage('Docker Push') {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'docker-hub-jenkins', usernameVariable: 'DOCKERHUB_USERNAME', passwordVariable: 'DOCKERHUB_PASSWORD')]) {
                     sh """
                         docker login -u ${DOCKERHUB_USERNAME} -p ${DOCKERHUB_PASSWORD}
-                        docker push ${DOCKERHUB_USERNAME}/${PROJECT_NAME}:${BUILD_NUMBER}
+                        docker push ${DOCKERHUB_USERNAME}/${PROJECT_NAME}:${BUILD_NUMBER}-${COMMIT_ID}
                     """
                 }
             }
