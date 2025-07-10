@@ -34,7 +34,7 @@ pipeline {
 
         stage('Deploy to Kubernetes') {
             steps {
-                withCredentials([file(credentialsId: 'minikube-kubeconfig-prod', variable: 'KUBECONFIG_FILE')]) {
+                withCredentials([file(credentialsId: 'kubeconfig-prod', variable: 'KUBECONFIG_FILE')]) {
                     sh '''
                         export KUBECONFIG=$KUBECONFIG_FILE
                         sed -i 's|image: .*|image: orisuniyanu/flaskapp1:${BUILD_NUMBER}|' k8s/deployment.yaml
