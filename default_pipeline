@@ -1,5 +1,5 @@
 pipeline {
-    agent any
+    agent { label 'docker' }
 
     parameters {
         string(name: 'GIT_URL', defaultValue: '', description: 'Git repo URL of the project')
