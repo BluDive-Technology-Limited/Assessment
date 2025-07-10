@@ -8,7 +8,6 @@ pipeline {
 
     environment {
         PROJECT_NAME = "${params.GIT_URL.split('/')[-1].replace('.git', '').toLowerCase()}"
-        DOCKERHUB_USERNAME = 'your-dockerhub-username'
     }
 
     stages {
@@ -18,36 +17,23 @@ pipeline {
             }
         }
 
-        stage('Docker Build & Push') {
+        stage('Docker Build') {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'docker-hub-jenkins', usernameVariable: 'DOCKERHUB_USERNAME', passwordVariable: 'DOCKERHUB_PASSWORD')]) {
                     sh """
                         docker build -t ${DOCKERHUB_USERNAME}/${PROJECT_NAME}:${BUILD_NUMBER} .
-                        docker tag ${DOCKERHUB_USERNAME}/${PROJECT_NAME}:${BUILD_NUMBER} ${DOCKERHUB_USERNAME}/${PROJECT_NAME}:latest
-                        echo "${DOCKERHUB_PASSWORD}" | docker login -u "${DOCKERHUB_USERNAME}" --password-stdin
-                        docker push ${DOCKERHUB_USERNAME}/${PROJECT_NAME}:${BUILD_NUMBER}
-                        docker push ${DOCKERHUB_USERNAME}/${PROJECT_NAME}:latest
                     """
                 }
             }
         }
-
-        stage('Deploy to Kubernetes') {
+        stage('Docker Push') {
             steps {
-                withCredentials([file(credentialsId: 'kubeconfig-prod', variable: 'KUBECONFIG_FILE')]) {
-                    sh '''
-                        export KUBECONFIG=$KUBECONFIG_FILE
-                        sed -i 's|image: .*|image: orisuniyanu/flaskapp1:${BUILD_NUMBER}|' k8s/deployment.yaml
-                        kubectl apply -f k8s/deployment.yaml
-                        kubectl apply -f k8s/service.yaml
-                    '''
+                withCredentials([usernamePassword(credentialsId: 'docker-hub-jenkins', usernameVariable: 'DOCKERHUB_USERNAME', passwordVariable: 'DOCKERHUB_PASSWORD')]) {
+                    sh """
+                        docker login -u ${DOCKERHUB_USERNAME} -p ${DOCKERHUB_PASSWORD}
+                        docker push ${DOCKERHUB_USERNAME}/${PROJECT_NAME}:${BUILD_NUMBER}
+                    """
                 }
-            }
-        }
-
-        stage('Verify Deployment') {
-            steps {
-                sh "kubectl rollout status deployment/${PROJECT_NAME} --timeout=60s"
             }
         }
     }
