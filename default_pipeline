@@ -17,12 +17,13 @@ pipeline {
             }
         }
 
-        stage('Get Commit ID and Build Number') {
+        stage('Set Commit ID and Image Tag') {
             steps {
                 script {
                     env.COMMIT_ID = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
-                    echo "✅ Commit ID: ${env.COMMIT_ID}"
-                    echo "✅ Build Number (Child): ${env.BUILD_NUMBER}"
+                    env.IMAGE_TAG = "${env.BUILD_NUMBER}-${env.COMMIT_ID}"
+                    echo "Commit ID: ${env.COMMIT_ID}"
+                    echo "Image Tag: ${env.IMAGE_TAG}"
                 }
             }
         }
@@ -31,7 +32,7 @@ pipeline {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'docker-hub-jenkins', usernameVariable: 'DOCKERHUB_USERNAME', passwordVariable: 'DOCKERHUB_PASSWORD')]) {
                     sh """
-                        docker build -t ${DOCKERHUB_USERNAME}/${PROJECT_NAME}:${BUILD_NUMBER}-${COMMIT_ID} .
+                        docker build -t ${DOCKERHUB_USERNAME}/${PROJECT_NAME}:${IMAGE_TAG} .
                     """
                 }
             }
@@ -42,7 +43,7 @@ pipeline {
                 withCredentials([usernamePassword(credentialsId: 'docker-hub-jenkins', usernameVariable: 'DOCKERHUB_USERNAME', passwordVariable: 'DOCKERHUB_PASSWORD')]) {
                     sh """
                         docker login -u ${DOCKERHUB_USERNAME} -p ${DOCKERHUB_PASSWORD}
-                        docker push ${DOCKERHUB_USERNAME}/${PROJECT_NAME}:${BUILD_NUMBER}-${COMMIT_ID}
+                        docker push ${DOCKERHUB_USERNAME}/${PROJECT_NAME}:${IMAGE_TAG}
                     """
                 }
             }
