@@ -1,8 +1,8 @@
 pipeline {
-    agent { label 'docker' }
+    agent any
 
     parameters {
-        string(name: 'GIT_URL', defaultValue: '', description: 'Git repo URL')
+        string(name: 'GIT_URL', defaultValue: '', description: 'Git repo URL of the project')
         string(name: 'GIT_BRANCH', defaultValue: 'main', description: 'Branch to build')
     }
 
@@ -17,10 +17,12 @@ pipeline {
             }
         }
 
-        stage('Get Commit ID') {
+        stage('Get Commit ID and Build Number') {
             steps {
                 script {
-                    env.GIT_COMMIT_ID = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
+                    env.COMMIT_ID = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
+                    echo "✅ Commit ID: ${env.COMMIT_ID}"
+                    echo "✅ Build Number (Child): ${env.BUILD_NUMBER}"
                 }
             }
         }
@@ -29,7 +31,7 @@ pipeline {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'docker-hub-jenkins', usernameVariable: 'DOCKERHUB_USERNAME', passwordVariable: 'DOCKERHUB_PASSWORD')]) {
                     sh """
-                        docker build -t ${DOCKERHUB_USERNAME}/${PROJECT_NAME}:${BUILD_NUMBER}-${GIT_COMMIT_ID} .
+                        docker build -t ${DOCKERHUB_USERNAME}/${PROJECT_NAME}:${BUILD_NUMBER}-${COMMIT_ID} .
                     """
                 }
             }
@@ -40,7 +42,7 @@ pipeline {
                 withCredentials([usernamePassword(credentialsId: 'docker-hub-jenkins', usernameVariable: 'DOCKERHUB_USERNAME', passwordVariable: 'DOCKERHUB_PASSWORD')]) {
                     sh """
                         docker login -u ${DOCKERHUB_USERNAME} -p ${DOCKERHUB_PASSWORD}
-                        docker push ${DOCKERHUB_USERNAME}/${PROJECT_NAME}:${BUILD_NUMBER}-${GIT_COMMIT_ID}
+                        docker push ${DOCKERHUB_USERNAME}/${PROJECT_NAME}:${BUILD_NUMBER}-${COMMIT_ID}
                     """
                 }
             }
