@@ -38,6 +38,19 @@ pipeline {
             }
         }
 
+        stage('Security Scan (Trivy)') {
+            steps {
+                script {
+                    def image = "${DOCKERHUB_USERNAME}/${PROJECT_NAME}:${BUILD_NUMBER}-${COMMIT_ID}"
+                    sh """
+                        echo "[+] Running Trivy scan on image: ${image}"
+                        docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image --severity CRITICAL --exit-code 1 --format table ${image} > trivy_report.txt
+                    """
+                    archiveArtifacts artifacts: 'trivy_report.txt'
+                }
+            }
+        }
+        
         stage('Docker Push') {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'docker-hub-jenkins', usernameVariable: 'DOCKERHUB_USERNAME', passwordVariable: 'DOCKERHUB_PASSWORD')]) {
